@@ -1,0 +1,15 @@
+---
+title: "01-notas"
+author: "Joel Rodriguez Herrera"
+output: html_document
+---
+
+La mayoría de los paquetes son muy recientes y con descargar insuficientes para determinar todos los posibles errores que puedan surgir a la hora de usarlos. Suelen tener documentación suficiente para documentar su uso, pero podrían no cubrir situaciones no previstas. Aunque sí se ven varias opciones de contacto, encontramos uno que no tiene contacto ni forma de aclarar. Por ser tan recientes, se espera que no requieran tener tantas actualizaciones; sin embargo, encontramos paquetes donde GitHub mostraba que faltaban actualizaciones. 
+
+Todos los paquetes analizados, todos parecen funcionar en todos los sitemas operativos. 
+
+El paquete elegido fue: GWENA
+
+En todos los demás había la posibilidad de comentar en Issues de GitHub, pero fue el único donde había errores comentados y resueltos. El autor@ contestó a los 3 días, lo cual parece muy buena atención y disposición de ayudar. Desde el Overview y documentación, con figuras y recursos gráficos se ve la dedicación que le da a que se entienda la teoría del paquete y la parte técnica de su funcionamiento. 
+
+Tiene más descargar que los demás paquetes e interacción. Además, es el más actualizado.
