@@ -22,7 +22,7 @@ Para crear archivo setup:
 #usethis::use_r('01-notas')
 ```
 Configurar repositorio y vincularlo con GitHub:
-```{r eval=FALSE, include=FALSE}
+```{r eval=FALSE}
 usethis::create_github_token()
 # En la pagina web definir nombre del repo y obtener token
 # Para el uso del servidor se necesita modificar arhivo publico con token
@@ -37,7 +37,7 @@ usethis::use_github()
 
 ## Clonar repositorios de GitHub
 
-```{r eval=FALSE, include=FALSE}
+```{r eval=FALSE}
 ## Opción más nueva:
 library("gert")
 repo <- git_clone(
@@ -88,7 +88,7 @@ Las tablas de información están ligadas y cada una almacena información disti
 
 ## Crear objeto
 
-```{r eval=FALSE, include=FALSE}
+```{r eval=FALSE}
 ## DE FORMA GENERAL:
 
 se <- SummarizedExperiment(
@@ -388,7 +388,7 @@ vd <- VisualizeDesign(
 )
 cowplot::plot_grid(plotlist = vd$plotlist, ncol = 1)
 ```
-```{r eval=FALSE, include=FALSE}
+```{r eval=FALSE}
 app <- ExploreModelMatrix(
   sampleData = sampleData,
   designFormula = ~ Response + Response:ind.n + Response:Treatment
