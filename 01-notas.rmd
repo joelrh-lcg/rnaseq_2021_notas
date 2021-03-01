@@ -1,0 +1,818 @@
+---
+title: "01-notas"
+author: "Joel Rodriguez Herrera (joelrh-lcg)"
+output: 
+  html_document:
+    toc: yes
+    toc_float: yes
+    code_folding: show
+    df_print: paged
+---
+
+# Clase martes 23 de febrero
+
+## Introducción a R: Creación de proyectos
+
+Para crear proyecto:
+```{r}
+#usethis::create_project("/path/newProject")
+```
+Para crear archivo setup:
+```{r}
+#usethis::use_r('01-notas')
+```
+Configurar repositorio y vincularlo con GitHub:
+```{r eval=FALSE, include=FALSE}
+usethis::create_github_token()
+# En la pagina web definir nombre del repo y obtener token
+# Para el uso del servidor se necesita modificar arhivo publico con token
+usethis::edit_r_environ()
+# GITHUB_PAT=TU_CLAVE_DE_40_LETRAS
+# recuerda reiniciar sesión de R
+## Para inicializar el repositorio de Git
+usethis::use_git()
+## Para conectar tu repositorio local de Git con los servidores de GitHub
+usethis::use_github()
+```
+
+## Clonar repositorios de GitHub
+
+```{r eval=FALSE, include=FALSE}
+## Opción más nueva:
+library("gert")
+repo <- git_clone(
+    "https://github.com/lcolladotor/rnaseq_LCG-UNAM_2021",
+    "~/rnaseq_LCG-UNAM_2021"
+)
+setwd(repo)
+```
+
+
+## Discusión en equipo sobre paquetes de Bioconductor
+
+La mayoría de los paquetes son muy recientes y con descargar insuficientes para determinar todos los posibles errores que puedan surgir a la hora de usarlos. Suelen tener documentación suficiente para documentar su uso, pero podrían no cubrir situaciones no previstas. Aunque sí se ven varias opciones de contacto, encontramos uno que no tiene contacto ni forma de aclarar. Por ser tan recientes, se espera que no requieran tener tantas actualizaciones; sin embargo, encontramos paquetes donde GitHub mostraba que faltaban actualizaciones. 
+
+Todos los paquetes analizados, todos parecen funcionar en todos los sitemas operativos. 
+
+El paquete elegido fue: GWENA
+
+En todos los demás había la posibilidad de comentar en Issues de GitHub, pero fue el único donde había errores comentados y resueltos. El autor@ contestó a los 3 días, lo cual parece muy buena atención y disposición de ayudar. Desde el Overview y documentación, con figuras y recursos gráficos se ve la dedicación que le da a que se entienda la teoría del paquete y la parte técnica de su funcionamiento. 
+
+Tiene más descargar que los demás paquetes e interacción. Además, es el más actualizado.
+
+También cabe destacar que nos llamó la atención la idea y el propósito del paquete porque creemos
+de gran utilidad el análisis de toda la red de co-expresión génica dentro de un solo pipeline.
+
+## Conclusión 
+
+Podemos utilizar la descripción de los paquetes, la atención que le brindan sus creadores en forma de
+actualizaciones, resoluciones de problemaso dudas, su soporte en distintos sistemas operativos,
+y otras indicaciones, que en general tienen que ver con el mantenimiento y atención de los programadores
+por la documentación de su paquete, para evaluar en primera instancia la fiabilidad de un paquete.
+
+# Clase miercoles 24 de febrero
+
+## SummarizedExperiment
+
+El paquete de SummarizedExperiment está compuesto por tablas con información sobre las muestras
+dentro de un experimento. Es un objeto que se utiliza para el análisis de expresión diferencial.
+Las tablas de información están ligadas y cada una almacena información distinta.
+
+### Tablas de información
+
+* rowRanges: tenemos los genes, un renglon por gen y una columna por cada dato de información de cada gen.
+* assay(s): podemos tener varias tablas de assay, tenemos un renglón por gen y una columna por muestra. Entonces en cada celda vamos a tener el número de veces que observamos el gen (expresión) para cada muestra.
+* colData: tiene un renglón por cada muestra y una columna por cada variable de información sobre las muestras.
+
+*Nota*: Pueden haber más tablas como de información del experimento (exptData)
+
+## Crear objeto
+
+```{r eval=FALSE, include=FALSE}
+## DE FORMA GENERAL:
+
+se <- SummarizedExperiment(
+  assays,
+  rowData,
+  colData,
+  exptData
+)
+```
+
+Dentro del objeto SummarizedExperiment se usa el objeto GenomicRanges (GRanges) para guardar las información de los genes.
+
+### Ejemplo
+
+```{r}
+library("SummarizedExperiment")
+
+## De los ejemplos en la ayuda oficial
+
+## Creamos los datos para nuestro objeto de tipo SummarizedExperiment
+## para 200 genes a lo largo de 6 muestras
+nrows <- 200
+ncols <- 6
+
+## Números al azar de cuentas
+set.seed(20210223)
+counts <- matrix(runif(nrows * ncols, 1, 1e4), nrows)
+
+## Información de nuestros genes
+rowRanges <- GRanges(
+  rep(c("chr1", "chr2"), c(50, 150)),
+  IRanges(floor(runif(200, 1e5, 1e6)), width = 100),
+  strand = sample(c("+", "-"), 200, TRUE),
+  feature_id = sprintf("ID%03d", 1:200)
+)
+names(rowRanges) <- paste0("gene_", seq_len(length(rowRanges)))
+
+## Información de nuestras muestras
+colData <- DataFrame(
+  Treatment = rep(c("ChIP", "Input"), 3),
+  row.names = LETTERS[1:6]
+)
+
+## Juntamos ahora toda la información en un solo objeto de R
+rse <- SummarizedExperiment(
+  assays = SimpleList(counts = counts),
+  rowRanges = rowRanges,
+  colData = colData
+)
+
+## Exploremos el objeto resultante
+rse
+
+## Número de genes y muestras
+dim(rse)
+
+## IDs de nuestros genes y muestras
+dimnames(rse)
+
+## Nombres de tablas de cuentas que tenemos (RPKM, CPM, counts, logcounts, etc)
+assayNames(rse)
+
+## El inicio de nuestra tabla de cuentas
+head(assay(rse))
+
+## Información de los genes en un objeto de Bioconductor
+rowRanges(rse)
+
+## Ver los "unique" levels (cromosomas)
+seqlevels(rse)
+## Tabla comprimida por repetición de cada level (chromosoma)
+seqnames(rowRanges(rse))
+
+## Tabla con información de los genes
+rowData(rse) # es idéntico a 'mcols(rowRanges(rse))'
+
+## Tabla con información de las muestras
+colData(rse)
+```
+*Nota:*
+
+* colNames: muestra los nombres de las muestras.
+* colData: variables de información de las muestras.
+
+```{r}
+## Ver los "unique" levels (cromosomas)
+seqlevels(rse)
+
+## Tabla comprimida por repetición de cada level (chromosoma)
+seqnames(rowRanges(rse))
+```
+
+
+### Ejercicio
+
+
+Explica que sucede en las siguientes líneas de código de R.
+
+```{r}
+## Comando 1
+rse[1:2, ]
+head(assay(rse[1:2, ]))
+```
+
+*Explicación:*
+Solo se muestran los primeros 2 genes, para esto se accesa a la tabla de 
+rowData y a las tablas de assays para asegurarse de solo mostrar los 
+renglones correspondientes
+
+```{r}
+## Comando 2
+rse[, c("A", "D", "F")]
+head(assay(rse[, c("A", "D", "F")]))
+#tras bambalinas
+which(colnames(rse)%in%c("A", "D", "F"))
+```
+
+*Explicación:*
+Como las columnas son muestras, aquí accesamos a un subset con las primeras tres.
+Para esto se accesa a la tabla colData para accesar a las muestras indicadas.
+
+## ISEE: interactivo
+
+Para visualizar objetos SummarizedExperiment.
+
+```{r}
+## Explora el objeto rse de forma interactiva
+library("iSEE")
+#iSEE::iSEE(rse)
+```
+
+
+```{r}
+## Descarguemos unos datos de spatialLIBD
+sce_layer <- spatialLIBD::fetch_data("sce_layer")
+```
+
+```{r}
+#iSEE::iSEE(sce_layer)
+```
+
+### Ejercicio
+
+Descarga un PDF que reproduzca la imagen del lado derecho de la siguiente diapositiva. Incluye ese PDF en tu repositorio de notas del curso.
+
+```{r}
+## Los archivos correspondientes al ejercicio se encuentran en la carpeta EJERCICIOS:
+
+#### ReducedDimensionPlot1.pdf
+#### ComplexHeatmapPlot1.pdf
+
+```
+
+## Recount
+
+Se usa para procesar datos crudos (FASTQ). Podemos descargar datos de experimentos y obtener un objeto
+SummarizedExperiment.
+
+En recount3 se tienen datos de miles de estudios en humanos y en ratón.
+
+```{r}
+# Cuando impotamos la libreria tambien se importa SummarizedExperiment
+library("recount3")
+```
+
+```{r}
+## Revisemos todos los proyectos con datos de humano en recount3
+human_projects <- available_projects()
+```
+
+Podemos ver el data frame con todos los estudios de humano disponibles en recount3.
+
+```{r}
+human_projects
+```
+
+
+```{r}
+## Encuentra tu proyecto de interés. Aquí usaremos
+## SRP009615 de ejemplo
+
+proj_info <- subset(
+    human_projects,
+    project == "SRP009615" & project_type == "data_sources"
+)
+```
+
+```{r}
+# Crea un objetio de tipo RangedSummarizedExperiment (RSE)
+## con la información a nivel de genes
+rse_gene_SRP009615 <- create_rse(proj_info)
+```
+
+```{r}
+rse_gene_SRP009615
+```
+Si nos fijamos en assays tenemos raw_counts porque son las cuentas de las bases sobrelapantes
+en todos los segmentos exónicos, no es el número de lecturas sobrelapantes, si no la suma de las bases.
+Hay transformaciones para pasar de esa cuenta a número de lecturas sobrelapantes, que son más comunes.
+
+```{r}
+## Transformación de cuentas a lecturas sobrelapantes
+assay(rse_gene_SRP009615, "counts") <- compute_read_counts(rse_gene_SRP009615)
+rse_gene_SRP009615
+```
+
+```{r}
+rse_gene_SRP009615 <- expand_sra_attributes(rse_gene_SRP009615)
+colData(rse_gene_SRP009615)[
+    ,
+    grepl("^sra_attribute", colnames(colData(rse_gene_SRP009615)))
+]
+```
+
+## Ejercicio
+
+Reproducir gráfica
+
+```{r}
+#iSEE::iSEE(rse_gene_SRP009615)
+```
+
+```{r}
+## RESULTADO:
+
+### Se ecnuenta en la carpeta EJERCICIOS con el nombre FeatureAssayPlot1.pdf
+```
+
+
+
+# Clase jueves 25 de febrero
+
+## Análisis de coeficientes
+
+Funcion model.matrix es usada por muchas otras funciones para el calculo de coeficientes.
+Se usa el signo '+' para decir qu etenemos más de una variable explicativa relacionada a nuestra variable y.
+El signo '*' se usa para decir que las variables explicativas  dependientes (x) están relacionadas, y esa relación 
+(ambas variables en conjunto) explican a (y).
+La tilde (~) es para definir la variable a explicar y separarla de las explicativas
+
+$y~x_1+x_2+x_3*x_4$
+
+### Ejemplo 1
+
+```{r}
+## Datos de ejemplo
+(sampleData <- data.frame(
+    genotype = rep(c("A", "B"), each = 4),
+    treatment = rep(c("ctrl", "trt"), 4)
+))
+
+```
+
+```{r}
+## Creemos las imágenes usando ExploreModelMatrix
+vd <- ExploreModelMatrix::VisualizeDesign(
+    sampleData = sampleData,
+    designFormula = ~ genotype + treatment,
+    textSizeFitted = 4
+)
+```
+
+```{r}
+vd
+```
+
+```{r}
+## Veamos las imágenes
+cowplot::plot_grid(plotlist = vd$plotlist)
+```
+
+```{r}
+library(ExploreModelMatrix)
+
+app <- ExploreModelMatrix(
+    sampleData = sampleData,
+    designFormula = ~ genotype + treatment
+)
+if (interactive()) shiny::runApp(app)
+```
+
+### Ejemplo 2
+
+```{r}
+(sampleData <- data.frame(
+  Response = rep(c("Resistant", "Sensitive"), c(12, 18)),
+  Patient = factor(rep(c(1:6, 8, 11:18), each = 2)),
+  Treatment = factor(rep(c("pre","post"), 15)), 
+  ind.n = factor(rep(c(1:6, 2, 5:12), each = 2))))
+```
+
+```{r}
+vd <- VisualizeDesign(
+  sampleData = sampleData,
+  designFormula = ~ Response + Response:ind.n + Response:Treatment,
+  textSizeFitted = 3
+)
+cowplot::plot_grid(plotlist = vd$plotlist, ncol = 1)
+```
+```{r eval=FALSE, include=FALSE}
+app <- ExploreModelMatrix(
+  sampleData = sampleData,
+  designFormula = ~ Response + Response:ind.n + Response:Treatment
+)
+if (interactive()) shiny::runApp(app)
+```
+
+```{r}
+vd <- VisualizeDesign(sampleData = sampleData,
+                      designFormula = ~ Treatment + Response, 
+                      textSizeFitted = 4)
+cowplot::plot_grid(plotlist = vd$plotlist, ncol = 1)
+```
+
+
+### Ejemplo 3
+
+Debemos de eliminar las variables linealmente dependientes.
+
+```{r}
+(sampleData = data.frame(
+  condition = factor(rep(c("ctrl_minus", "ctrl_plus", 
+                           "ko_minus", "ko_plus"), 3)),
+  batch = factor(rep(1:6, each = 2))))
+
+## Aqui es cuando eliminamos la columna linealmente dependiente 
+### Se agrega 0 al principio de la formula para eliminar el intercepto, porque queremos tener un coeficiente para cada batch
+vd <- VisualizeDesign(sampleData = sampleData,
+                      designFormula = ~ 0 + batch + condition, 
+                      textSizeFitted = 4, lineWidthFitted = 20, 
+                      dropCols = "conditionko_minus")
+cowplot::plot_grid(plotlist = vd$plotlist, ncol = 1)
+```
+
+## Datos de SRP045638 usando recount3
+
+```{r}
+
+human_projects <- available_projects()
+rse_gene_SRP045638 <- create_rse(
+    subset(
+        human_projects,
+        project == "SRP045638" & project_type == "data_sources"
+    )
+)
+```
+
+```{r}
+assay(rse_gene_SRP045638, "counts") <- compute_read_counts(rse_gene_SRP045638)
+```
+
+```{r}
+rse_gene_SRP045638$sra.sample_attributes[1:3]
+```
+Hay que eliminar la característica dev_stage;;Fetal que solo está en la primera muestra.
+
+```{r}
+rse_gene_SRP045638$sra.sample_attributes <- gsub("dev_stage;;Fetal\\|", "", rse_gene_SRP045638$sra.sample_attributes)
+rse_gene_SRP045638$sra.sample_attributes[1:3]
+```
+
+```{r}
+rse_gene_SRP045638 <- expand_sra_attributes(rse_gene_SRP045638)
+
+colData(rse_gene_SRP045638)[
+    ,
+    grepl("^sra_attribute", colnames(colData(rse_gene_SRP045638)))
+]
+```
+
+Tenemos un problema porque las columnas numéricas son caracteres, hay que hacer casting:
+```{r}
+## Pasar de character a nuemric o factor
+rse_gene_SRP045638$sra_attribute.age <- as.numeric(rse_gene_SRP045638$sra_attribute.age)
+rse_gene_SRP045638$sra_attribute.disease <- factor(rse_gene_SRP045638$sra_attribute.disease)
+rse_gene_SRP045638$sra_attribute.RIN <- as.numeric(rse_gene_SRP045638$sra_attribute.RIN)
+rse_gene_SRP045638$sra_attribute.sex <- factor(rse_gene_SRP045638$sra_attribute.sex)
+
+## Resumen de las variables de interés
+summary(as.data.frame(colData(rse_gene_SRP045638)[
+    ,
+    grepl("^sra_attribute.[age|disease|RIN|sex]", colnames(colData(rse_gene_SRP045638)))
+]))
+```
+```{r}
+## Encontraremos diferencias entre muestra prenatalas vs postnatales
+rse_gene_SRP045638$prenatal <- factor(ifelse(rse_gene_SRP045638$sra_attribute.age < 0, "prenatal", "postnatal"))
+table(rse_gene_SRP045638$prenatal)
+```
+Otro analisis:
+```{r}
+## http://research.libd.org/recount3-docs/docs/quality-check-fields.html
+rse_gene_SRP045638$assigned_gene_prop <- rse_gene_SRP045638$recount_qc.gene_fc_count_all.assigned / rse_gene_SRP045638$recount_qc.gene_fc_count_all.total
+summary(rse_gene_SRP045638$assigned_gene_prop)
+```
+
+```{r}
+with(colData(rse_gene_SRP045638), plot(assigned_gene_prop, sra_attribute.RIN))
+```
+
+
+```{r}
+## Hm... veamos si hay una diferencia entre los grupos
+with(colData(rse_gene_SRP045638), tapply(assigned_gene_prop, prenatal, summary))
+```
+
+
+```{r}
+## Guardemos nuestro objeto entero por si luego cambiamos de opinión
+rse_gene_SRP045638_unfiltered <- rse_gene_SRP045638
+
+## Eliminemos a muestras malas
+hist(rse_gene_SRP045638$assigned_gene_prop)
+```
+
+
+Siempre se elmininan primero muestras y luego genes, porque para los genes usamos medias de expresión, y esta puede variar con el numero de muestras:
+
+```{r}
+rse_gene_SRP045638 <- rse_gene_SRP045638[, rse_gene_SRP045638$assigned_gene_prop > 0.3]
+
+## Calculemos los niveles medios de expresión de los genes en nuestras
+## muestras.
+## Ojo: en un análisis real probablemente haríamos esto con los RPKMs o CPMs
+## en vez de las cuentas.
+gene_means <- rowMeans(assay(rse_gene_SRP045638, "counts"))
+summary(gene_means)
+```
+
+
+```{r}
+## Eliminamos genes
+rse_gene_SRP045638 <- rse_gene_SRP045638[gene_means > 0.1, ]
+
+## Dimensiones finales
+dim(rse_gene_SRP045638)
+```
+
+```{r}
+## Porcentaje de genes que retuvimos
+round(nrow(rse_gene_SRP045638) / nrow(rse_gene_SRP045638_unfiltered) * 100, 2)
+```
+
+## Normalización de datos
+
+Antes se comparaba la expresión tan solo con el tamaño de libreria, pero hay casos en los que se podía detectar errores de comparación de expresión, como que un gen tuviera el doble de expresión que otro aún cuando tenían la misma expresión pero tenían distinto tamaño de libreria.
+
+```{r}
+library("edgeR") # BiocManager::install("edgeR", update = FALSE)
+dge <- DGEList(
+    counts = assay(rse_gene_SRP045638, "counts"),
+    genes = rowData(rse_gene_SRP045638)
+)
+dge <- calcNormFactors(dge)
+```
+
+
+## Expresión dierencial
+
+Exploramos los datos:
+
+```{r}
+library("ggplot2")
+ggplot(as.data.frame(colData(rse_gene_SRP045638)), aes(y = assigned_gene_prop, x = prenatal)) +
+    geom_boxplot() +
+    theme_bw(base_size = 20) +
+    ylab("Assigned Gene Prop") +
+    xlab("Age Group")
+```
+
+```{r}
+mod <- model.matrix(~ prenatal + sra_attribute.RIN + sra_attribute.sex + assigned_gene_prop,
+    data = colData(rse_gene_SRP045638)
+)
+colnames(mod)
+```
+
+es prenatalprenatal porque la referencia es postnatal y es sexmale porque la referencia es female.
+```{r}
+library("limma")
+vGene <- voom(dge, mod, plot = TRUE)
+```
+
+Usamos la version de lima de lm:
+```{r}
+# usamos eBayes para tener los valores P
+eb_results <- eBayes(lmFit(vGene))
+
+de_results <- topTable(
+    eb_results,
+    # usamos el coef 2 porque nos interesa analizar prenatalprenatal
+    coef = 2,
+    number = nrow(rse_gene_SRP045638),
+    sort.by = "none"
+)
+dim(de_results)
+```
+
+```{r}
+head(de_results)
+```
+
+```{r}
+## Genes diferencialmente expresados entre pre y post natal con FDR < 5%
+table(de_results$adj.P.Val < 0.05)
+```
+
+```{r}
+## Visualicemos los resultados estadísticos
+plotMA(eb_results, coef = 2)
+```
+
+```{r}
+volcanoplot(eb_results, coef = 2, highlight = 3, names = de_results$gene_name)
+```
+## Visualizando genes Differential expression
+
+```{r}
+## Extraer valores de los genes de interés
+exprs_heatmap <- vGene$E[rank(de_results$adj.P.Val) <= 50, ]
+
+## Creemos una tabla con información de las muestras
+## y con nombres de columnas más amigables
+df <- as.data.frame(colData(rse_gene_SRP045638)[, c("prenatal", "sra_attribute.RIN", "sra_attribute.sex")])
+colnames(df) <- c("AgeGroup", "RIN", "Sex")
+
+## Hagamos un heatmap
+library("pheatmap")
+pheatmap(
+    exprs_heatmap,
+    cluster_rows = TRUE,
+    cluster_cols = TRUE,
+    show_rownames = FALSE,
+    show_colnames = FALSE,
+    annotation_col = df
+)
+```
+```{r}
+## Para colores
+library("RColorBrewer")
+
+## Conviertiendo los grupos de edad a colores
+col.group <- df$AgeGroup
+levels(col.group) <- brewer.pal(nlevels(col.group), "Set1")
+```
+```{r}
+col.group <- as.character(col.group)
+
+## MDS por grupos de edad
+plotMDS(vGene$E, labels = df$AgeGroup, col = col.group)
+```
+
+```{r}
+## Conviertiendo los valores de Sex a colores
+col.sex <- df$Sex
+levels(col.sex) <- brewer.pal(nlevels(col.sex), "Dark2")
+```
+
+```{r}
+col.sex <- as.character(col.sex)
+
+## MDS por sexo
+plotMDS(vGene$E, labels = df$Sex, col = col.sex)
+```
+
+## Ejercicio
+
+```{r}
+nombres_rse_gene <-rowRanges(rse_gene_SRP045638)$gene_name
+id_rse_gene <- rowRanges(rse_gene_SRP045638)$gene_id
+
+exprs_heatmap <- vGene$E[rank(de_results$adj.P.Val) <= 50, ]
+posiciones <- match(rownames(exprs_heatmap),id_rse_gene)
+# hacer un subconjunto de los ronames 
+filtered_id_names <-rowRanges(rse_gene_SRP045638)$gene_name[posiciones]
+
+#remplazar los nombres de exprs_heatmap
+head(exprs_heatmap)
+exprs_heatmap
+row.names(exprs_heatmap) <- filtered_id_names
+
+pheatmap(
+    exprs_heatmap,
+    #que agrupe los genes tanto en renglones como en cols que son las muestras
+    cluster_rows = TRUE,
+    cluster_cols = TRUE,
+    show_rownames = TRUE,
+    show_colnames = FALSE,
+    annotation_col = df
+)
+```
+
+```{r}
+# default value of pdf is 4
+pdf("EJERCICIOS/pheatmap_con_nombres.pdf", height=14, useDingbats = FALSE)
+## Y luego podemos cambiar el valor de show_rownames de FALSE a TRUE
+pheatmap(
+    exprs_heatmap,
+    #que agrupe los genes tanto en renglones como en cols que son las muestras
+    cluster_rows = TRUE,
+    cluster_cols = TRUE,
+    show_rownames = TRUE,
+    show_colnames = FALSE,
+    annotation_col = df
+)
+dev.off()
+
+# Resultado en carpeta EJERCICIOS
+
+```
+
+# Clase viernes 26 de febrero
+
+Ejercicio de revisión.
+```{r}
+speaqeasy_data <- file.path(tempdir(), "rse_speaqeasy.RData")
+download.file("https://github.com/LieberInstitute/SPEAQeasy-example/blob/master/rse_speaqeasy.RData?raw=true", speaqeasy_data, mode = "wb")
+load(speaqeasy_data, verbose = TRUE)
+```
+
+* ¿Hay diferencias en totalAssignedGene o mitoRate entre los grupos de diagnosis (PrimaryDx)?
+
+*Nota:* FullRank significa que todas las columnas son linealmente independientes.
+
+```{r}
+## Eliminemos el diagnosis "Other" porque no tiene información
+rse_gene$PrimaryDx <- droplevels(rse_gene$PrimaryDx)
+table(rse_gene$PrimaryDx)
+## Exploremos numéricamente diferencias entre grupos de diagnosis para
+## varias variables
+with(colData(rse_gene), tapply(totalAssignedGene, PrimaryDx, summary))
+```
+
+```{r}
+with(colData(rse_gene), tapply(mitoRate, PrimaryDx, summary))
+```
+
+```{r}
+## Podemos resolver la primeras preguntas con iSEE
+if (interactive()) iSEE::iSEE(rse_gene)
+```
+
+Gráfica respuesta con iSEE en carpeta EJERCICIOS/ColumnDataPlot1.pdf
+
+```{r}
+## O hacer graficas nosotros mismos. Aquí les muestro una posible respuesta
+## con ggplot2
+library("ggplot2")
+ggplot(
+    as.data.frame(colData(rse_gene)),
+    aes(y = totalAssignedGene, group = PrimaryDx, x = PrimaryDx)
+) +
+    geom_boxplot() +
+    theme_bw(base_size = 20) +
+    xlab("Diagnosis")
+```
+
+* Grafica la expresión de SNAP25 para cada grupo de diagnosis.
+
+```{r}
+## En este objeto los nombres de los genes vienen en la variable "Symbol"
+i <- which(rowRanges(rse_gene)$Symbol == "SNAP25")
+i
+```
+
+```{r}
+## Para graficar con ggplot2, hagamos un pequeño data.frame
+df <- data.frame(
+    expression = assay(rse_gene)[i, ],
+    Dx = rse_gene$PrimaryDx
+)
+
+## Ya teniendo el pequeño data.frame, podemos hacer la gráfica
+ggplot(df, aes(y = log2(expression + 0.5), group = Dx, x = Dx)) +
+    geom_boxplot() +
+    theme_bw(base_size = 20) +
+    xlab("Diagnosis") +
+    ylab("SNAP25: log2(x + 0.5)")
+```
+
+Gráfica hecha con iSEE para el gen SNAP25 se ecnuentra en carpeta EJERCICIOS/FeatureAssayPlot1SNAP25.pdf
+
+* Sugiere un modelo estadistico que podríamos usar en una análisis de expresión diferencial. Verifica que si sea un modelo full rank. ¿Cúal sería el o los coeficientes de interés?
+
+```{r}
+## Para el model estadístico exploremos la información de las muestras
+colnames(colData(rse_gene))
+```
+
+```{r}
+## Ojo! Acá es importante que hayamos usado droplevels(rse_gene$PrimaryDx)
+## si no, vamos a tener un modelo que no sea _full rank_
+mod <- with(
+    colData(rse_gene),
+    model.matrix(~ PrimaryDx + totalAssignedGene + mitoRate + rRNA_rate + BrainRegion + Sex + AgeDeath)
+)
+
+## Exploremos el modelo de forma interactiva
+if (interactive()) {
+    ## Tenemos que eliminar columnas que tienen NAs.
+    info_no_NAs <- colData(rse_gene)[, c(
+        "PrimaryDx", "totalAssignedGene", "rRNA_rate", "BrainRegion", "Sex",
+        "AgeDeath", "mitoRate", "Race"
+    )]
+    ExploreModelMatrix::ExploreModelMatrix(
+        info_no_NAs,
+        ~ PrimaryDx + totalAssignedGene + mitoRate + rRNA_rate + BrainRegion + Sex + AgeDeath
+    )
+
+    ## Veamos un modelo más sencillo sin las variables numéricas (continuas) porque
+    ## ExploreModelMatrix nos las muestra como si fueran factors (categoricas)
+    ## en vez de continuas
+    ExploreModelMatrix::ExploreModelMatrix(
+        info_no_NAs,
+        ~ PrimaryDx + BrainRegion + Sex
+    )
+
+    ## Si agregamos + Race nos da errores porque Race solo tiene 1 opción
+    # ExploreModelMatrix::ExploreModelMatrix(
+    #     info_no_NAs,
+    #     ~ PrimaryDx + BrainRegion + Sex + Race
+    # )
+}
+```
+
+
+
